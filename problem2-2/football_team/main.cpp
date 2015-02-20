@@ -5,6 +5,7 @@
 
 class FootballPlayer {
 private:
+    /*% long long -- нечитабельное имя типа, используй типы данных intXX_t */
     long long effectiveness;
     int playerId;
 public:
@@ -33,8 +34,13 @@ std::vector<FootballPlayer> readInput() {
     int numberOfPlayers;
     std::cin >> numberOfPlayers;
 
+    /*% Здесь нужно сразу указать размер вектора и использовать обращение по индексу.
+    vector -- это не list, у него push_back может приводить к реаллокации памяти 
+    с временными затратами O(N)
+    */
     std::vector<FootballPlayer> footballPlayers;
 
+    /*% В яыках C/C++/C#/Java и многих других принято организовывать цикл for (i=0;<N;++i) */
     for (int i = 1; i <= numberOfPlayers; ++i) {
         long long effectiveness;
         std::cin >> effectiveness;
@@ -43,13 +49,24 @@ std::vector<FootballPlayer> readInput() {
     return footballPlayers;
 }
 
-
+/*% 
+Использование std::pair для возвращаемых типов и аргументов нежелательно, т.к. имена полей класса ничего не значат. 
+Более того, во многих Code Style Guide его использование запрещено.
+Лучше потратить несколько лишних строк кода и явно объявить структуру.
+*/
 std::pair<long long, std::vector<int> > maximalEffectivenessTeam(std::vector<FootballPlayer> footballPlayers) {
     // If no players were given
     if (footballPlayers.empty()) {
         return make_pair(0ll, std::vector<int>());
     }
-
+ 
+ 
+    /*% В условии задания написано:
+    "В задачах этой домашней работы дополнительно нельзя пользоваться никакими стан-
+    дартными алгоритмами сортировки, бинарного поиска и сложными структурами дан-
+    ных, например, кучей и деревом поиска. Если для решения какой-то задачи необходимо
+    ими воспользоваться, их нужно реализовать самим."
+    */
     // Sort all players by effectiveness
     std::stable_sort(footballPlayers.begin(), footballPlayers.end());
 
@@ -64,6 +81,8 @@ std::pair<long long, std::vector<int> > maximalEffectivenessTeam(std::vector<Foo
     size_t bestSegmentBegin = 0;
     size_t bestSegmentEnd   = 1;
 
+    /*% Для обхода по всей коллекции обычно используются стандартные итераторы
+    См., например, http://www.cplusplus.com/reference/vector/vector/begin/ */
     // iterate the beginning of the segment of players
     for (size_t begin = 0; begin + 1 < footballPlayers.size(); ++begin) {
         // Calculate the maximal effectiveness of the player that can be included in team with players (begin) and (begin + 1)
