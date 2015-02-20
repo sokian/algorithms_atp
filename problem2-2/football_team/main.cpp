@@ -1,15 +1,93 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 #include <limits>
+
+
+namespace Utils {
+template<typename Iterator1, typename Iterator2, typename OutputIterator>
+void merge(Iterator1 first1, Iterator1 last1,
+           Iterator2 first2, Iterator2 last2,
+           OutputIterator result)
+{
+    while (first1 != last1 && first2 != last2) {
+        if (*first1 < *first2) {
+            *result = *first1;
+            ++first1;
+        } else {
+            *result = *first2;
+            ++first2;
+        }
+        ++result;
+    }
+    while (first1 != last1) {
+        *result = *first1;
+        ++result;
+        ++first1;
+    }
+    while (first2 != last2) {
+        *result = *first2;
+        ++result;
+        ++first2;
+    }
+}
+
+template<typename Pointer, typename Iterator>
+void partialCopy(Pointer buffer, Iterator first, Iterator last) {
+    for (Iterator iterator = first; iterator != last; ++iterator, ++buffer) {
+        *iterator = *buffer;
+    }
+}
+
+template<typename Iterator, typename Pointer>
+void mergeSortWithBuffer(Iterator first, Iterator last, Pointer buffer) {
+    if (last - first < 2) {
+        return;
+    }
+
+    const Iterator middle = first + (last - first + 1) / 2;
+    mergeSortWithBuffer(first, middle, buffer);
+    mergeSortWithBuffer(middle, last, buffer);
+    Utils::merge(first, middle, middle, last, buffer);
+    partialCopy(buffer, first, last);
+}
+
+template<typename Iterator>
+void mergeSort(Iterator first, Iterator last) {
+    typedef typename std::iterator_traits<Iterator>::value_type ValueType;
+    std::vector<ValueType> buffer(first, last);
+    mergeSortWithBuffer(first, last, buffer.begin());
+}
+
+template<typename Iterator, typename ValueType>
+Iterator upperBound(Iterator first, Iterator last, ValueType value) {
+    size_t length = last - first;
+
+    while (length > 0) {
+        size_t halfLength = length >> 1;
+
+        const Iterator middle = first + halfLength;
+
+        if (value < *middle) {
+            length = halfLength;
+        } else {
+            length = length - halfLength - 1;
+            first = middle;
+            ++first;
+        }
+    }
+    return first;
+}
+}
 
 class FootballPlayer {
 private:
-    /*% long long -- нечитабельное имя типа, используй типы данных intXX_t */
-    long long effectiveness;
+    int64_t effectiveness;
     int playerId;
 public:
-    FootballPlayer(const long long &effectiveness, const int &playerId)
+    FootballPlayer() {
+    }
+
+    FootballPlayer(int64_t effectiveness, int playerId)
         : effectiveness(effectiveness), playerId(playerId)
     {
     }
@@ -21,7 +99,7 @@ public:
         return playerId < player.playerId;
     }
 
-    long long getEffectivness() const {
+    int64_t getEffectivness() const {
         return effectiveness;
     }
 
@@ -30,98 +108,101 @@ public:
     }
 };
 
+struct FootballTeam {
+    int64_t totalEffectiveness;
+    std::vector<int> playerIds;
+};
+
+std::ostream & operator << (std::ostream &os, const FootballTeam &team) {
+    os << team.totalEffectiveness << "\n";
+    const std::vector<int> &playerIds = team.playerIds;
+    for (std::vector<int>::const_iterator iterator = playerIds.begin(); iterator != playerIds.end(); ++iterator) {
+        if (iterator != playerIds.begin()) {
+            os << " ";
+        }
+        os << *iterator;
+    }
+    os << "\n";
+    return os;
+}
+
+
 std::vector<FootballPlayer> readInput() {
     int numberOfPlayers;
     std::cin >> numberOfPlayers;
 
-    /*% Здесь нужно сразу указать размер вектора и использовать обращение по индексу.
-    vector -- это не list, у него push_back может приводить к реаллокации памяти 
-    с временными затратами O(N)
-    */
-    std::vector<FootballPlayer> footballPlayers;
+    std::vector<FootballPlayer> footballPlayers(numberOfPlayers);
 
-    /*% В яыках C/C++/C#/Java и многих других принято организовывать цикл for (i=0;<N;++i) */
-    for (int i = 1; i <= numberOfPlayers; ++i) {
-        long long effectiveness;
+    for (int i = 0; i < numberOfPlayers; ++i) {
+        int64_t effectiveness;
         std::cin >> effectiveness;
-        footballPlayers.push_back(FootballPlayer(effectiveness, i));
+        footballPlayers[i] = FootballPlayer(effectiveness, i + 1);
     }
     return footballPlayers;
 }
 
-/*% 
-Использование std::pair для возвращаемых типов и аргументов нежелательно, т.к. имена полей класса ничего не значат. 
-Более того, во многих Code Style Guide его использование запрещено.
-Лучше потратить несколько лишних строк кода и явно объявить структуру.
-*/
-std::pair<long long, std::vector<int> > maximalEffectivenessTeam(std::vector<FootballPlayer> footballPlayers) {
-    // If no players were given
+FootballTeam maximalEffectivenessTeam(std::vector<FootballPlayer> footballPlayers) {
+    typedef std::vector<FootballPlayer>::iterator FootballPlayersIterator;
+
+    FootballTeam bestTeam;
     if (footballPlayers.empty()) {
-        return make_pair(0ll, std::vector<int>());
+        bestTeam.totalEffectiveness = 0;
+        bestTeam.playerIds = std::vector<int>();
+        return bestTeam;
     }
- 
- 
-    /*% В условии задания написано:
-    "В задачах этой домашней работы дополнительно нельзя пользоваться никакими стан-
-    дартными алгоритмами сортировки, бинарного поиска и сложными структурами дан-
-    ных, например, кучей и деревом поиска. Если для решения какой-то задачи необходимо
-    ими воспользоваться, их нужно реализовать самим."
-    */
+
     // Sort all players by effectiveness
-    std::stable_sort(footballPlayers.begin(), footballPlayers.end());
+    Utils::mergeSort(footballPlayers.begin(), footballPlayers.end());
 
     // Calculate partial sums of players' effectiveness
-    std::vector<long long> partialSumOfEffectiveness(footballPlayers.size() + 1, 0);
+    std::vector<int64_t> partialSumOfEffectiveness(footballPlayers.size() + 1, 0);
     for (size_t i = 0; i < footballPlayers.size(); ++i) {
         partialSumOfEffectiveness[i + 1] = partialSumOfEffectiveness[i] + footballPlayers[i].getEffectivness();
     }
 
     // One player satisfies conditions
-    long long bestTeamEffectiveness = footballPlayers.at(0).getEffectivness();
-    size_t bestSegmentBegin = 0;
-    size_t bestSegmentEnd   = 1;
+    int64_t bestTeamEffectiveness = footballPlayers.at(0).getEffectivness();
+    FootballPlayersIterator bestSegmentFirst = footballPlayers.begin();
+    FootballPlayersIterator bestSegmentLast  = footballPlayers.begin() + 1;
 
-    /*% Для обхода по всей коллекции обычно используются стандартные итераторы
-    См., например, http://www.cplusplus.com/reference/vector/vector/begin/ */
     // iterate the beginning of the segment of players
-    for (size_t begin = 0; begin + 1 < footballPlayers.size(); ++begin) {
-        // Calculate the maximal effectiveness of the player that can be included in team with players (begin) and (begin + 1)
-        long long maximalPlayerEffectiveness = footballPlayers[begin].getEffectivness() + footballPlayers[begin + 1].getEffectivness();
-        // Find the end of such segment by binary search
-        size_t end = std::upper_bound(footballPlayers.begin(), footballPlayers.end(), FootballPlayer(maximalPlayerEffectiveness, std::numeric_limits<int>::max())) - footballPlayers.begin();
+    for (FootballPlayersIterator first = footballPlayers.begin(); ; ++first) {
+        FootballPlayersIterator next = first + 1;
+        if (next == footballPlayers.end()) {
+            break;
+        }
 
-        // Calculate current team effectiveness of segment [begin, end)
-        long long currentTeamEffectiveness = partialSumOfEffectiveness[end] - partialSumOfEffectiveness[begin];
+        // Calculate the maximal effectiveness of the player that can be included in team with players (first) and (first + 1)
+        int64_t maximalPlayerEffectiveness = first->getEffectivness() + next->getEffectivness();
+
+        // Find the end of such segment by binary search
+        FootballPlayersIterator last = Utils::upperBound(footballPlayers.begin(), footballPlayers.end(),
+                                                         FootballPlayer(maximalPlayerEffectiveness, std::numeric_limits<int>::max()));
+
+        // Calculate current team effectiveness of segment [first, last)
+        size_t firstPosition = first - footballPlayers.begin();
+        size_t lastPosition  = last - footballPlayers.begin();
+        int64_t currentTeamEffectiveness = partialSumOfEffectiveness.at(lastPosition) - partialSumOfEffectiveness.at(firstPosition);
 
         // Update answer if needed
         if (bestTeamEffectiveness < currentTeamEffectiveness) {
             bestTeamEffectiveness = currentTeamEffectiveness;
-            bestSegmentBegin = begin;
-            bestSegmentEnd = end;
+            bestSegmentFirst = first;
+            bestSegmentLast  = last;
         }
     }
 
     // Fill the answer
     std::vector<int> playersId;
-    for (size_t i = bestSegmentBegin; i < bestSegmentEnd; ++i) {
-        playersId.push_back(footballPlayers[i].getId());
+    for (FootballPlayersIterator iterator = bestSegmentFirst; iterator != bestSegmentLast; ++iterator) {
+        playersId.push_back(iterator->getId());
     }
-    // Sort id
-    std::stable_sort(playersId.begin(), playersId.end());
-    return make_pair(bestTeamEffectiveness, playersId);
-}
 
-// Output results in stdout
-void printResults(const std::pair<long long, std::vector<int> > &result) {
-    std::cout << result.first << "\n";
-    const std::vector<int> &footballPlayerIds = result.second;
-    for (size_t i = 0; i < footballPlayerIds.size(); ++i) {
-        if (i) {
-            std::cout << " ";
-        }
-        std::cout << footballPlayerIds.at(i);
-    }
-    std::cout << "\n";
+    // Sort ids
+    Utils::mergeSort(playersId.begin(), playersId.end());
+    bestTeam.totalEffectiveness = bestTeamEffectiveness;
+    bestTeam.playerIds.swap(playersId);
+    return bestTeam;
 }
 
 int main()
@@ -132,7 +213,7 @@ int main()
 
     std::vector<FootballPlayer> footballPlayers = readInput();
     auto bestTeam = maximalEffectivenessTeam(footballPlayers);
-    printResults(bestTeam);
+    std::cout << bestTeam;
 
     return 0;
 }
